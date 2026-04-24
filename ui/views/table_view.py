@@ -73,7 +73,9 @@ def render() -> None:
     selected_rows = selection.selection.rows if selection.selection else []
     if selected_rows:
         deal_row = f.iloc[selected_rows[0]]
-        st.subheader(f"{deal_row['comprador']} → {deal_row['alvo']}")
+        head_l, head_r = st.columns([5, 1])
+        head_l.subheader(f"{deal_row['comprador']} → {deal_row['alvo']}")
+        head_r.link_button("🔍 Abrir deal", f"/deal?id={int(deal_row['id'])}", width="stretch")
         st.write(f"**{deal_row.get('resumo_uma_frase', '')}**")
 
         c1, c2, c3 = st.columns(3)

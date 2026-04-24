@@ -163,3 +163,40 @@ def load_mentions_for(deal_ids: Iterable[int]) -> pd.DataFrame:
         .data
     )
     return pd.DataFrame(rows)
+
+
+def fetch_deal(deal_id: int) -> dict | None:
+    """Sem cache — usado na página de detalhes, onde precisamos sempre
+    ver o estado atual (após edições)."""
+    client = get_client()
+    resp = client.table("deals").select("*").eq("id", deal_id).limit(1).execute()
+    return resp.data[0] if resp.data else None
+
+
+def fetch_mentions_full(deal_id: int) -> list[dict]:
+    """Retorna todas as colunas das menções, inclusive texto_bruto."""
+    client = get_client()
+    resp = (
+        client.table("deal_mentions")
+        .select("*")
+        .eq("deal_id", deal_id)
+        .order("data_publicacao", desc=True)
+        .execute()
+    )
+    return resp.data or []
+
+
+def update_deal(deal_id: int, fields: dict) -> None:
+    """Atualiza campos de um deal. Se alvo/comprador mudaram, re-normaliza."""
+    from db.dedup import normalize_name
+
+    payload = dict(fields)
+    if "alvo" in payload:
+        payload["alvo_normalizado"] = normalize_name(payload.get("alvo"))
+    if "comprador" in payload:
+        payload["comprador_normalizado"] = normalize_name(payload.get("comprador"))
+
+    client = get_client()
+    client.table("deals").update(payload).eq("id", deal_id).execute()
+    load_deals.clear()
+    load_mentions_for.clear()

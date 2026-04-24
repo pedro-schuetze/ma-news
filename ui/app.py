@@ -60,13 +60,14 @@ def _require_auth() -> bool:
 if not _require_auth():
     st.stop()
 
-from views import feed_view, mercado_view, table_view  # noqa: E402
+from views import deal_view, feed_view, mercado_view, table_view  # noqa: E402
 
 pg = st.navigation(
     [
         st.Page(feed_view.render, title="Feed", icon="📰", url_path="feed", default=True),
         st.Page(table_view.render, title="Tabela", icon="📊", url_path="tabela"),
         st.Page(mercado_view.render, title="Mercado", icon="📈", url_path="mercado"),
+        st.Page(deal_view.render, title="Deal", icon="🔍", url_path="deal"),
     ]
 )
 pg.run()

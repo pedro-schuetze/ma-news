@@ -98,6 +98,12 @@ CARD_CSS = """
 }
 .deal-card-foot .sources a:hover { text-decoration: underline; }
 .deal-card-foot .sources .sep { opacity: 0.4; margin: 0 4px; }
+.deal-card-head .deal-link {
+    color: #0969da;
+    text-decoration: none;
+    font-weight: 500;
+}
+.deal-card-head .deal-link:hover { text-decoration: underline; }
 .feed-date-header {
     font-size: 1.05rem;
     font-weight: 600;
@@ -137,11 +143,12 @@ def _render_card(deal: pd.Series, mentions: pd.DataFrame) -> None:
         sep = '<span class="sep">·</span>'
         sources_html = sep.join(source_links)
 
+    deal_id = int(deal["id"])
     html = f"""
     <div class="deal-card">
         <div class="deal-card-head">
             <div><span class="flag">{flag}</span><span class="setor">{setor_line}</span></div>
-            <div class="date">{data_str}</div>
+            <div class="date">{data_str} · <a href="/deal?id={deal_id}" class="deal-link">abrir deal →</a></div>
         </div>
         <div class="deal-card-title">
             <span>{comprador}</span><span class="arrow">→</span><span>{alvo}</span>
