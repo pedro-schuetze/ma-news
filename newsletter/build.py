@@ -105,9 +105,13 @@ def fetch_recent_deals(lookback_hours: int = 30) -> list[dict]:
     """Busca deals criados nas últimas N horas (usamos created_at, não data_anuncio,
     para capturar deals processados hoje mesmo que o anúncio oficial seja mais antigo).
     Default 30h para dar folga em relação ao cron diário.
+
+    Aplica threshold de exibição para deals Global (default US$500M via
+    DISPLAY_MIN_USD_GLOBAL). BR nunca é filtrado por valor.
     """
     client = get_client()
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=lookback_hours)).isoformat()
+    display_min_global = float(os.environ.get("DISPLAY_MIN_USD_GLOBAL", "500000000"))
 
     deals = (
         client.table("deals")
@@ -118,6 +122,14 @@ def fetch_recent_deals(lookback_hours: int = 30) -> list[dict]:
         .execute()
         .data
     )
+    if not deals:
+        return []
+
+    deals = [
+        d for d in deals
+        if d.get("regiao") == "BR"
+        or (d.get("valor_usd") is not None and float(d["valor_usd"]) >= display_min_global)
+    ]
     if not deals:
         return []
 

@@ -76,7 +76,11 @@ def _build_mention_row(item: RawItem, deal_id: int, hash_mention: str) -> dict:
 def run(lookback_hours: int = 24) -> dict:
     load_dotenv(override=True)
     client = get_client()
-    min_global_usd = float(os.environ.get("GLOBAL_DEAL_MIN_USD", "500000000"))
+    min_global_usd = float(
+        os.environ.get("COLLECT_MIN_USD_GLOBAL")
+        or os.environ.get("GLOBAL_DEAL_MIN_USD")
+        or "100000000"
+    )
 
     raw_items = collect_all(lookback_hours)
     print(f"[info] coletadas {len(raw_items)} notícias brutas")

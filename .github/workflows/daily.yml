@@ -27,7 +27,7 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_MODEL: claude-sonnet-4-6
-          GLOBAL_DEAL_MIN_USD: '500000000'
+          COLLECT_MIN_USD_GLOBAL: '100000000'
         run: python pipeline.py
 
       - name: Send newsletter
@@ -37,4 +37,5 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           NEWSLETTER_TO: ${{ secrets.NEWSLETTER_TO }}
+          DISPLAY_MIN_USD_GLOBAL: '500000000'
         run: python newsletter/build.py --send

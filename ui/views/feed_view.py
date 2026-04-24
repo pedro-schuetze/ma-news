@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from datetime import date, timedelta
 
 import pandas as pd
@@ -165,6 +166,11 @@ def render() -> None:
         df = df[df["data_anuncio"].fillna(hoje) >= inicio]
     if regiao_filtro != "Todos":
         df = df[df["regiao"] == regiao_filtro]
+
+    display_min_global = float(os.environ.get("DISPLAY_MIN_USD_GLOBAL", "500000000"))
+    mask_br = df["regiao"] == "BR"
+    mask_global_ok = (df["regiao"] == "Global") & (df["valor_usd"].fillna(0) >= display_min_global)
+    df = df[mask_br | mask_global_ok]
 
     df = df.sort_values(by="data_anuncio", ascending=False, na_position="last")
 
