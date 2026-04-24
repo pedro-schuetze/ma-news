@@ -6,69 +6,78 @@ from datetime import date, timedelta
 import pandas as pd
 import streamlit as st
 
-from _lib import flag_for, format_date_pt, format_value, load_deals, load_mentions_for
+from _lib import (
+    flag_for,
+    format_date_pt,
+    format_date_pt_relative,
+    format_value,
+    load_deals,
+    load_mentions_for,
+    render_header,
+)
 
 
 CARD_CSS = """
 <style>
 .deal-card {
-    border: 1px solid rgba(128, 128, 128, 0.2);
+    border: 1px solid rgba(128, 128, 128, 0.25);
     border-radius: 12px;
-    padding: 20px 24px;
-    margin-bottom: 16px;
-    background: rgba(255, 255, 255, 0.02);
+    padding: 18px 22px;
+    margin-bottom: 14px;
+    background: rgba(128, 128, 128, 0.03);
     transition: border-color 0.15s ease, background 0.15s ease;
 }
 .deal-card:hover {
-    border-color: rgba(128, 128, 128, 0.45);
-    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(128, 128, 128, 0.5);
+    background: rgba(128, 128, 128, 0.06);
 }
 .deal-card-head {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
-    font-size: 0.9rem;
-    color: #9aa3ad;
+    margin-bottom: 8px;
+    font-size: 0.88rem;
+    opacity: 0.7;
 }
-.deal-card-head .flag { font-size: 1.4rem; margin-right: 6px; }
+.deal-card-head .flag { font-size: 1.3rem; margin-right: 8px; }
 .deal-card-head .setor { font-weight: 500; }
-.deal-card-head .date { font-size: 0.85rem; }
+.deal-card-head .date { font-size: 0.82rem; }
 .deal-card-title {
-    font-size: 1.35rem;
+    font-size: 1.3rem;
     font-weight: 600;
     margin: 4px 0 2px 0;
     line-height: 1.3;
 }
-.deal-card-title .arrow { color: #7a8591; margin: 0 10px; font-weight: 400; }
+.deal-card-title .arrow { opacity: 0.5; margin: 0 10px; font-weight: 400; }
 .deal-card-value {
     display: inline-block;
-    font-size: 1.05rem;
+    font-size: 1rem;
     font-weight: 600;
-    color: #00a86b;
+    color: #047857;
     padding: 2px 10px;
-    border: 1px solid rgba(0, 168, 107, 0.3);
+    border: 1px solid rgba(4, 120, 87, 0.35);
     border-radius: 6px;
     margin: 6px 0 10px 0;
-    background: rgba(0, 168, 107, 0.06);
+    background: rgba(16, 185, 129, 0.1);
 }
 .deal-card-value.unknown {
-    color: #9aa3ad;
-    border-color: rgba(154, 163, 173, 0.3);
-    background: rgba(154, 163, 173, 0.05);
+    color: inherit;
+    opacity: 0.55;
+    border-color: rgba(128, 128, 128, 0.3);
+    background: rgba(128, 128, 128, 0.08);
 }
 .deal-card-summary {
-    font-size: 0.98rem;
+    font-size: 0.96rem;
     line-height: 1.5;
-    color: #d3d7db;
     margin-bottom: 12px;
+    opacity: 0.88;
 }
 .deal-card-foot {
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-size: 0.85rem;
-    color: #9aa3ad;
+    opacity: 0.75;
     flex-wrap: wrap;
     gap: 8px;
 }
@@ -76,19 +85,27 @@ CARD_CSS = """
     display: inline-block;
     padding: 2px 8px;
     border-radius: 4px;
-    background: rgba(100, 120, 180, 0.15);
-    color: #b0bfd4;
-    font-size: 0.8rem;
+    background: rgba(100, 120, 180, 0.18);
+    font-size: 0.78rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    font-weight: 600;
 }
 .deal-card-foot .sources a {
-    color: #6aa6ff;
+    color: #0969da;
     text-decoration: none;
     margin-left: 4px;
 }
 .deal-card-foot .sources a:hover { text-decoration: underline; }
-.deal-card-foot .sources .sep { color: #4a525e; margin: 0 4px; }
+.deal-card-foot .sources .sep { opacity: 0.4; margin: 0 4px; }
+.feed-date-header {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 18px 0 8px 0;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+    opacity: 0.85;
+}
 </style>
 """
 
@@ -142,8 +159,7 @@ def _render_card(deal: pd.Series, mentions: pd.DataFrame) -> None:
 
 def render() -> None:
     st.markdown(CARD_CSS, unsafe_allow_html=True)
-    st.title("Feed de Transações")
-    st.caption("Deals em ordem cronológica, mais recentes primeiro.")
+    render_header("Feed de transações — mais recentes primeiro")
 
     df = load_deals()
     if df.empty:
@@ -189,6 +205,7 @@ def render() -> None:
     for _, deal in df.iterrows():
         dt = deal.get("data_anuncio")
         if dt != current_date:
-            st.markdown(f"### {format_date_pt(dt) or 'Sem data'}")
+            label = format_date_pt_relative(dt) or "Sem data"
+            st.markdown(f"<div class='feed-date-header'>{label}</div>", unsafe_allow_html=True)
             current_date = dt
         _render_card(deal, mentions)

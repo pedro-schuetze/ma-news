@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Iterable
 
 import pandas as pd
@@ -78,6 +78,60 @@ def format_date_pt(d) -> str:
         d = d.date()
     meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
     return f"{d.day} {meses[d.month - 1]} {d.year}"
+
+
+def format_date_pt_relative(d) -> str:
+    """Como format_date_pt, mas devolve 'Hoje'/'Ontem' quando aplicável."""
+    if d is None or pd.isna(d):
+        return ""
+    if isinstance(d, str):
+        try:
+            d = datetime.fromisoformat(d).date()
+        except ValueError:
+            return d
+    if isinstance(d, datetime):
+        d = d.date()
+    today = date.today()
+    if d == today:
+        return "Hoje"
+    if d == today - timedelta(days=1):
+        return "Ontem"
+    return format_date_pt(d)
+
+
+def render_header(subtitle: str | None = None) -> None:
+    """Barra de topo consistente entre as páginas."""
+    df = load_deals()
+    last_update = None
+    if not df.empty and "created_at" in df.columns and df["created_at"].notna().any():
+        try:
+            last_update = pd.to_datetime(df["created_at"]).max()
+        except Exception:
+            last_update = None
+
+    total = 0 if df.empty else len(df)
+
+    left, right = st.columns([3, 1])
+    with left:
+        st.markdown(
+            "<div style='font-size:13px;letter-spacing:2px;color:#6aa6ff;font-weight:600;"
+            "text-transform:uppercase;'>📈 M&amp;A News</div>"
+            f"<div style='font-size:13px;color:#8a93a0;margin-top:2px;'>"
+            f"{subtitle or 'Transações de M&amp;A no Brasil e no mundo'}</div>",
+            unsafe_allow_html=True,
+        )
+    with right:
+        label = "Última atualização"
+        value = "—"
+        if last_update is not None:
+            value = last_update.strftime("%d/%m %H:%M")
+        st.markdown(
+            f"<div style='text-align:right;font-size:11px;color:#8a93a0;'>{label}</div>"
+            f"<div style='text-align:right;font-size:13px;color:#b0bfd4;font-weight:500;'>"
+            f"{value} · {total} deals na base</div>",
+            unsafe_allow_html=True,
+        )
+    st.markdown("<hr style='margin:10px 0 18px 0;border:none;border-top:1px solid rgba(128,128,128,0.2);'>", unsafe_allow_html=True)
 
 
 @st.cache_data(ttl=300)

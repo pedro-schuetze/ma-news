@@ -5,30 +5,41 @@ from datetime import date, timedelta
 import pandas as pd
 import streamlit as st
 
-from _lib import format_value, load_deals, load_mentions_for
+from _lib import format_value, load_deals, load_mentions_for, render_header
+
+
+_FILTER_KEYS = ("regiao_sel", "setor_sel", "tipo_sel", "val_range", "incluir_sem_valor", "data_range", "busca")
+
+
+def _clear_filters() -> None:
+    for k in _FILTER_KEYS:
+        if k in st.session_state:
+            del st.session_state[k]
 
 
 def render() -> None:
-    st.title("Tabela de Deals")
-    st.caption("Todas as transações coletadas, com filtros para explorar a base.")
+    render_header("Tabela completa — filtros avançados")
 
     df = load_deals()
     if df.empty:
         st.warning("Nenhum deal na base ainda. Rode `python pipeline.py` primeiro.")
         return
 
+    hoje = date.today()
+    default_inicio = hoje - timedelta(days=30)
+
     # === Sidebar: filtros ===
     with st.sidebar:
         st.header("Filtros")
 
         regioes = ["Todos"] + sorted(df["regiao"].dropna().unique().tolist())
-        regiao_sel = st.selectbox("Região", regioes, index=0)
+        regiao_sel = st.selectbox("Região", regioes, key="regiao_sel")
 
         setores = ["Todos"] + sorted(df["setor"].dropna().unique().tolist())
-        setor_sel = st.selectbox("Setor", setores, index=0)
+        setor_sel = st.selectbox("Setor", setores, key="setor_sel")
 
         tipos = ["Todos"] + sorted(df["tipo_transacao"].dropna().unique().tolist())
-        tipo_sel = st.selectbox("Tipo de transação", tipos, index=0)
+        tipo_sel = st.selectbox("Tipo de transação", tipos, key="tipo_sel")
 
         max_val_usd = float(df["valor_usd"].max() or 1e9)
         cap_mm = max(max_val_usd / 1e6, 1000.0)
@@ -38,18 +49,23 @@ def render() -> None:
             max_value=float(cap_mm),
             value=(0.0, float(cap_mm)),
             step=50.0,
+            key="val_range",
         )
-        incluir_sem_valor = st.checkbox("Incluir deals sem valor divulgado", value=True)
+        incluir_sem_valor = st.checkbox(
+            "Incluir deals sem valor divulgado", value=True, key="incluir_sem_valor"
+        )
 
-        hoje = date.today()
-        default_inicio = hoje - timedelta(days=30)
-        data_range = st.date_input("Período (anúncio)", value=(default_inicio, hoje))
+        data_range = st.date_input(
+            "Período (anúncio)", value=(default_inicio, hoje), key="data_range"
+        )
         if isinstance(data_range, tuple) and len(data_range) == 2:
             data_ini, data_fim = data_range
         else:
             data_ini, data_fim = default_inicio, hoje
 
-        busca = st.text_input("Busca (alvo ou comprador)", "")
+        busca = st.text_input("Busca (alvo ou comprador)", key="busca")
+
+        st.button("🧹 Limpar filtros", on_click=_clear_filters, width="stretch")
 
     f = df.copy()
     if regiao_sel != "Todos":
@@ -74,6 +90,20 @@ def render() -> None:
             | f["comprador"].fillna("").str.lower().str.contains(q)
         ]
 
+    active = [
+        ("Região", regiao_sel != "Todos"),
+        ("Setor", setor_sel != "Todos"),
+        ("Tipo", tipo_sel != "Todos"),
+        ("Valor", (val_min, val_max) != (0.0, float(cap_mm))),
+        ("Sem valor", not incluir_sem_valor),
+        ("Período", (data_ini, data_fim) != (default_inicio, hoje)),
+        ("Busca", bool(busca.strip())),
+    ]
+    n_active = sum(1 for _, on in active if on)
+    if n_active:
+        labels = ", ".join(name for name, on in active if on)
+        st.caption(f"🔎 **{n_active} filtro{'s' if n_active != 1 else ''} ativo{'s' if n_active != 1 else ''}:** {labels}")
+
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Deals filtrados", len(f))
     col2.metric("Brasil", int((f["regiao"] == "BR").sum()))
@@ -87,17 +117,18 @@ def render() -> None:
         st.info("Nenhum deal bate com os filtros.")
         return
 
-    display = f.copy()
-    display["valor"] = display.apply(lambda r: format_value(r.get("valor_usd"), r.get("valor_brl")), axis=1)
-    cols_show = ["data_anuncio", "regiao", "comprador", "alvo", "setor", "valor", "tipo_transacao", "resumo_uma_frase"]
-    display_table = display[cols_show].rename(
+    cols_show = [
+        "data_anuncio", "regiao", "comprador", "alvo", "setor",
+        "valor_usd", "tipo_transacao", "resumo_uma_frase",
+    ]
+    display_table = f[cols_show].rename(
         columns={
             "data_anuncio": "Data",
             "regiao": "Região",
             "comprador": "Comprador",
             "alvo": "Alvo",
             "setor": "Setor",
-            "valor": "Valor",
+            "valor_usd": "Valor (US$)",
             "tipo_transacao": "Tipo",
             "resumo_uma_frase": "Resumo",
         }
@@ -110,6 +141,18 @@ def render() -> None:
         on_select="rerun",
         selection_mode="single-row",
         height=450,
+        column_config={
+            "Data": st.column_config.DateColumn("Data", format="DD MMM YYYY", width="small"),
+            "Região": st.column_config.TextColumn("Região", width="small"),
+            "Comprador": st.column_config.TextColumn("Comprador", width="medium"),
+            "Alvo": st.column_config.TextColumn("Alvo", width="medium"),
+            "Setor": st.column_config.TextColumn("Setor", width="small"),
+            "Valor (US$)": st.column_config.NumberColumn(
+                "Valor (US$)", format="compact", width="small"
+            ),
+            "Tipo": st.column_config.TextColumn("Tipo", width="small"),
+            "Resumo": st.column_config.TextColumn("Resumo", width="large"),
+        },
     )
 
     selected_rows = selection.selection.rows if selection.selection else []
