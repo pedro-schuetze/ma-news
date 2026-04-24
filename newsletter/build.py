@@ -23,34 +23,60 @@ from db.client import get_client  # noqa: E402
 _MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
           "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
 
-_COUNTRY_FLAGS = {
-    "brasil": "🇧🇷", "brazil": "🇧🇷",
-    "estados unidos": "🇺🇸", "eua": "🇺🇸", "usa": "🇺🇸", "us": "🇺🇸", "united states": "🇺🇸",
-    "colombia": "🇨🇴", "colômbia": "🇨🇴",
-    "alemanha": "🇩🇪", "germany": "🇩🇪",
-    "canada": "🇨🇦", "canadá": "🇨🇦",
-    "italia": "🇮🇹", "itália": "🇮🇹", "italy": "🇮🇹",
-    "franca": "🇫🇷", "frança": "🇫🇷", "france": "🇫🇷",
-    "reino unido": "🇬🇧", "uk": "🇬🇧", "united kingdom": "🇬🇧",
-    "espanha": "🇪🇸", "spain": "🇪🇸",
-    "portugal": "🇵🇹",
-    "japao": "🇯🇵", "japão": "🇯🇵", "japan": "🇯🇵",
-    "china": "🇨🇳", "india": "🇮🇳", "índia": "🇮🇳",
-    "mexico": "🇲🇽", "méxico": "🇲🇽",
-    "argentina": "🇦🇷", "chile": "🇨🇱", "peru": "🇵🇪",
-    "suica": "🇨🇭", "suíça": "🇨🇭", "switzerland": "🇨🇭",
-    "holanda": "🇳🇱", "netherlands": "🇳🇱",
+_COUNTRY_ISO2 = {
+    "brasil": "br", "brazil": "br",
+    "estados unidos": "us", "eua": "us", "usa": "us", "us": "us", "united states": "us",
+    "colombia": "co", "colômbia": "co",
+    "alemanha": "de", "germany": "de",
+    "canada": "ca", "canadá": "ca",
+    "italia": "it", "itália": "it", "italy": "it",
+    "franca": "fr", "frança": "fr", "france": "fr",
+    "reino unido": "gb", "uk": "gb", "united kingdom": "gb", "inglaterra": "gb",
+    "espanha": "es", "spain": "es",
+    "portugal": "pt",
+    "japao": "jp", "japão": "jp", "japan": "jp",
+    "china": "cn",
+    "india": "in", "índia": "in",
+    "mexico": "mx", "méxico": "mx",
+    "argentina": "ar", "chile": "cl", "peru": "pe",
+    "coreia do sul": "kr", "coréia do sul": "kr", "south korea": "kr",
+    "australia": "au", "austrália": "au",
+    "suica": "ch", "suíça": "ch", "switzerland": "ch",
+    "holanda": "nl", "netherlands": "nl",
+    "belgica": "be", "bélgica": "be", "belgium": "be",
+    "irlanda": "ie", "ireland": "ie",
+    "singapura": "sg", "singapore": "sg",
 }
 
 
-def _flag_for(pais: str | None, regiao: str | None) -> str:
+def _iso2_for(pais: str | None, regiao: str | None) -> str | None:
     if pais:
         key = pais.strip().lower()
-        if key in _COUNTRY_FLAGS:
-            return _COUNTRY_FLAGS[key]
+        if key in _COUNTRY_ISO2:
+            return _COUNTRY_ISO2[key]
     if regiao == "BR":
-        return "🇧🇷"
-    return "🌐"
+        return "br"
+    return None
+
+
+def _flag_img_html(pais: str | None, regiao: str | None, width: int = 20) -> str:
+    """Retorna <img> com flagcdn PNG, ou fallback com globinho estilizado."""
+    iso = _iso2_for(pais, regiao)
+    if iso:
+        # flagcdn serve tamanhos discretos: 16, 20, 24, 28, 32, 40, 48, 56, 64, 80, 96, ...
+        # Use w{N} (largura fixa, altura proporcional)
+        return (
+            f'<img src="https://flagcdn.com/w{width * 2}/{iso}.png" '
+            f'width="{width}" alt="" '
+            f'style="display:inline-block;vertical-align:middle;border-radius:2px;'
+            f'border:1px solid rgba(0,0,0,0.1);">'
+        )
+    # Fallback: círculo cinza com símbolo de globo (sempre renderiza)
+    return (
+        f'<span style="display:inline-block;width:{width}px;height:{int(width * 0.75)}px;'
+        f'background:#dfe3e8;border-radius:2px;text-align:center;line-height:{int(width * 0.75)}px;'
+        f'font-size:{int(width * 0.6)}px;color:#6a737d;vertical-align:middle;">●</span>'
+    )
 
 
 def _format_value(v_usd, v_brl) -> str:
@@ -119,7 +145,7 @@ def build_context(deals: list[dict]) -> dict:
         enriched.append(
             {
                 **d,
-                "flag": _flag_for(d.get("pais"), d.get("regiao")),
+                "flag_img": _flag_img_html(d.get("pais"), d.get("regiao"), width=20),
                 "valor_str": _format_value(d.get("valor_usd"), d.get("valor_brl")),
             }
         )
@@ -132,9 +158,23 @@ def build_context(deals: list[dict]) -> dict:
 
     groups = []
     if brasil:
-        groups.append({"label": "🇧🇷 BRASIL", "deals": _sort_by_value(brasil)})
+        groups.append(
+            {
+                "key": "brasil",
+                "label": "Brasil",
+                "flag_img_large": _flag_img_html("Brasil", "BR", width=36),
+                "deals": _sort_by_value(brasil),
+            }
+        )
     if globais:
-        groups.append({"label": "🌐 GLOBAL", "deals": _sort_by_value(globais)})
+        groups.append(
+            {
+                "key": "global",
+                "label": "Global",
+                "flag_img_large": None,
+                "deals": _sort_by_value(globais),
+            }
+        )
 
     fontes_unicas = {m["fonte"] for d in enriched for m in d.get("mentions", [])}
 
