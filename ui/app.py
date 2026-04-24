@@ -62,12 +62,13 @@ if not _require_auth():
 
 from views import deal_view, feed_view, mercado_view, table_view  # noqa: E402
 
-pg = st.navigation(
-    [
-        st.Page(feed_view.render, title="Feed", icon="📰", url_path="feed", default=True),
-        st.Page(table_view.render, title="Tabela", icon="📊", url_path="tabela"),
-        st.Page(mercado_view.render, title="Mercado", icon="📈", url_path="mercado"),
-        st.Page(deal_view.render, title="Deal", icon="🔍", url_path="deal"),
-    ]
-)
+_PAGES = {
+    "feed": st.Page(feed_view.render, title="Feed", icon="📰", url_path="feed", default=True),
+    "table": st.Page(table_view.render, title="Tabela", icon="📊", url_path="tabela"),
+    "mercado": st.Page(mercado_view.render, title="Mercado", icon="📈", url_path="mercado"),
+    "deal": st.Page(deal_view.render, title="Deal", icon="🔍", url_path="deal"),
+}
+st.session_state["pages"] = _PAGES
+
+pg = st.navigation(list(_PAGES.values()))
 pg.run()

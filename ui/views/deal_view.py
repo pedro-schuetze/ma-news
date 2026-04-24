@@ -316,18 +316,20 @@ def render() -> None:
     st.markdown(DEAL_CSS, unsafe_allow_html=True)
     render_header("Página do deal")
 
-    qp = st.query_params
-    deal_id_str = qp.get("id")
-
-    if not deal_id_str:
-        _picker_when_no_id()
-        return
-
-    try:
-        deal_id = int(deal_id_str)
-    except (ValueError, TypeError):
-        st.error("ID inválido.")
-        return
+    deal_id = st.session_state.pop("selected_deal_id", None)
+    if deal_id is None:
+        deal_id_str = st.query_params.get("id")
+        if not deal_id_str:
+            _picker_when_no_id()
+            return
+        try:
+            deal_id = int(deal_id_str)
+        except (ValueError, TypeError):
+            st.error("ID inválido.")
+            return
+    else:
+        deal_id = int(deal_id)
+        st.query_params["id"] = str(deal_id)
 
     deal = fetch_deal(deal_id)
     if not deal:

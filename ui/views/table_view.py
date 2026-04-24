@@ -3,7 +3,7 @@ from __future__ import annotations
 import streamlit as st
 
 from _filters import render_active_banner, render_sidebar_and_apply
-from _lib import format_value, load_deals, load_mentions_for, render_header
+from _lib import format_value, load_deals, load_mentions_for, open_deal, render_header
 
 
 def render() -> None:
@@ -75,7 +75,13 @@ def render() -> None:
         deal_row = f.iloc[selected_rows[0]]
         head_l, head_r = st.columns([5, 1])
         head_l.subheader(f"{deal_row['comprador']} → {deal_row['alvo']}")
-        head_r.link_button("🔍 Abrir deal", f"/deal?id={int(deal_row['id'])}", width="stretch")
+        head_r.button(
+            "🔍 Abrir deal",
+            key=f"open_tbl_{int(deal_row['id'])}",
+            on_click=open_deal,
+            args=(int(deal_row["id"]),),
+            width="stretch",
+        )
         st.write(f"**{deal_row.get('resumo_uma_frase', '')}**")
 
         c1, c2, c3 = st.columns(3)

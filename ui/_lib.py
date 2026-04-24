@@ -186,6 +186,15 @@ def fetch_mentions_full(deal_id: int) -> list[dict]:
     return resp.data or []
 
 
+def open_deal(deal_id: int) -> None:
+    """Callback para abrir a página de detalhes do deal preservando
+    sessão (não usa <a href>, que quebra auth no Streamlit Cloud)."""
+    st.session_state["selected_deal_id"] = int(deal_id)
+    pages = st.session_state.get("pages") or {}
+    if "deal" in pages:
+        st.switch_page(pages["deal"])
+
+
 def update_deal(deal_id: int, fields: dict) -> None:
     """Atualiza campos de um deal. Se alvo/comprador mudaram, re-normaliza."""
     from db.dedup import normalize_name
