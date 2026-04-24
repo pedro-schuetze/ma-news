@@ -10,3 +10,4 @@ venv/
 *.log
 newsletter_preview.html
 .claude/
+.streamlit/secrets.toml
