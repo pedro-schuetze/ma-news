@@ -1,20 +1,9 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
-
-import pandas as pd
 import streamlit as st
 
+from _filters import render_active_banner, render_sidebar_and_apply
 from _lib import format_value, load_deals, load_mentions_for, render_header
-
-
-_FILTER_KEYS = ("regiao_sel", "setor_sel", "tipo_sel", "val_range", "incluir_sem_valor", "data_range", "busca")
-
-
-def _clear_filters() -> None:
-    for k in _FILTER_KEYS:
-        if k in st.session_state:
-            del st.session_state[k]
 
 
 def render() -> None:
@@ -25,84 +14,10 @@ def render() -> None:
         st.warning("Nenhum deal na base ainda. Rode `python pipeline.py` primeiro.")
         return
 
-    hoje = date.today()
-    default_inicio = hoje - timedelta(days=30)
+    ctx = render_sidebar_and_apply(df)
+    f = ctx.filtered
 
-    # === Sidebar: filtros ===
-    with st.sidebar:
-        st.header("Filtros")
-
-        regioes = ["Todos"] + sorted(df["regiao"].dropna().unique().tolist())
-        regiao_sel = st.selectbox("Região", regioes, key="regiao_sel")
-
-        setores = ["Todos"] + sorted(df["setor"].dropna().unique().tolist())
-        setor_sel = st.selectbox("Setor", setores, key="setor_sel")
-
-        tipos = ["Todos"] + sorted(df["tipo_transacao"].dropna().unique().tolist())
-        tipo_sel = st.selectbox("Tipo de transação", tipos, key="tipo_sel")
-
-        max_val_usd = float(df["valor_usd"].max() or 1e9)
-        cap_mm = max(max_val_usd / 1e6, 1000.0)
-        val_min, val_max = st.slider(
-            "Valor (US$ milhões)",
-            min_value=0.0,
-            max_value=float(cap_mm),
-            value=(0.0, float(cap_mm)),
-            step=50.0,
-            key="val_range",
-        )
-        incluir_sem_valor = st.checkbox(
-            "Incluir deals sem valor divulgado", value=True, key="incluir_sem_valor"
-        )
-
-        data_range = st.date_input(
-            "Período (anúncio)", value=(default_inicio, hoje), key="data_range"
-        )
-        if isinstance(data_range, tuple) and len(data_range) == 2:
-            data_ini, data_fim = data_range
-        else:
-            data_ini, data_fim = default_inicio, hoje
-
-        busca = st.text_input("Busca (alvo ou comprador)", key="busca")
-
-        st.button("🧹 Limpar filtros", on_click=_clear_filters, width="stretch")
-
-    f = df.copy()
-    if regiao_sel != "Todos":
-        f = f[f["regiao"] == regiao_sel]
-    if setor_sel != "Todos":
-        f = f[f["setor"] == setor_sel]
-    if tipo_sel != "Todos":
-        f = f[f["tipo_transacao"] == tipo_sel]
-
-    val_mask = (f["valor_usd"].fillna(-1) >= val_min * 1e6) & (f["valor_usd"].fillna(-1) <= val_max * 1e6)
-    if incluir_sem_valor:
-        val_mask = val_mask | f["valor_usd"].isna()
-    f = f[val_mask]
-
-    date_mask = f["data_anuncio"].between(data_ini, data_fim) | f["data_anuncio"].isna()
-    f = f[date_mask]
-
-    if busca.strip():
-        q = busca.strip().lower()
-        f = f[
-            f["alvo"].fillna("").str.lower().str.contains(q)
-            | f["comprador"].fillna("").str.lower().str.contains(q)
-        ]
-
-    active = [
-        ("Região", regiao_sel != "Todos"),
-        ("Setor", setor_sel != "Todos"),
-        ("Tipo", tipo_sel != "Todos"),
-        ("Valor", (val_min, val_max) != (0.0, float(cap_mm))),
-        ("Sem valor", not incluir_sem_valor),
-        ("Período", (data_ini, data_fim) != (default_inicio, hoje)),
-        ("Busca", bool(busca.strip())),
-    ]
-    n_active = sum(1 for _, on in active if on)
-    if n_active:
-        labels = ", ".join(name for name, on in active if on)
-        st.caption(f"🔎 **{n_active} filtro{'s' if n_active != 1 else ''} ativo{'s' if n_active != 1 else ''}:** {labels}")
+    render_active_banner(ctx)
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Deals filtrados", len(f))
