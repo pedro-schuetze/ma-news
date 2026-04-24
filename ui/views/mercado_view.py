@@ -7,20 +7,86 @@ from _filters import render_active_banner, render_sidebar_and_apply
 from _lib import format_value, load_deals, render_header
 
 
+KPI_CSS = """
+<style>
+.kpi-card {
+    border: 1px solid rgba(128, 128, 128, 0.25);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 14px;
+    background: rgba(128, 128, 128, 0.03);
+    min-height: 96px;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+.kpi-card:hover {
+    border-color: rgba(128, 128, 128, 0.5);
+    background: rgba(128, 128, 128, 0.06);
+}
+.kpi-label {
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    opacity: 0.65;
+    margin-bottom: 6px;
+}
+.kpi-value {
+    font-size: 1.7rem;
+    font-weight: 600;
+    line-height: 1.15;
+}
+.kpi-sub {
+    font-size: 0.78rem;
+    opacity: 0.6;
+    margin-top: 4px;
+}
+</style>
+"""
+
+
+def _kpi_card(label: str, value: str, sub: str | None = None) -> str:
+    sub_html = f"<div class='kpi-sub'>{sub}</div>" if sub else ""
+    return (
+        f"<div class='kpi-card'>"
+        f"<div class='kpi-label'>{label}</div>"
+        f"<div class='kpi-value'>{value}</div>"
+        f"{sub_html}"
+        f"</div>"
+    )
+
+
 def _kpi_row(f: pd.DataFrame) -> None:
+    st.markdown(KPI_CSS, unsafe_allow_html=True)
+
     total_deals = len(f)
+    n_br = int((f["regiao"] == "BR").sum())
+    n_gl = int((f["regiao"] == "Global").sum())
+
     with_value = f[f["valor_usd"].notna()]
     total_usd = float(with_value["valor_usd"].sum()) if not with_value.empty else 0.0
     ticket_medio = total_usd / len(with_value) if not with_value.empty else 0.0
     maior = float(with_value["valor_usd"].max()) if not with_value.empty else 0.0
     pct_com_valor = (len(with_value) / total_deals * 100) if total_deals else 0.0
 
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Deals", total_deals)
-    c2.metric("Volume total", f"US$ {total_usd / 1e9:.1f}bi" if total_usd else "n/d")
-    c3.metric("Ticket médio", format_value(ticket_medio, None) if ticket_medio else "n/d")
-    c4.metric("Maior deal", format_value(maior, None) if maior else "n/d")
-    c5.metric("% com valor divulgado", f"{pct_com_valor:.0f}%")
+    maior_row = with_value.sort_values("valor_usd", ascending=False).head(1)
+    maior_sub = None
+    if not maior_row.empty:
+        r = maior_row.iloc[0]
+        maior_sub = f"{r.get('comprador') or '?'} → {r.get('alvo') or '?'}"
+
+    volume_str = format_value(total_usd, None) if total_usd else "n/d"
+    ticket_str = format_value(ticket_medio, None) if ticket_medio else "n/d"
+    maior_str = format_value(maior, None) if maior else "n/d"
+
+    c1, c2, c3 = st.columns(3, gap="medium")
+    c1.markdown(_kpi_card("Total de deals", str(total_deals)), unsafe_allow_html=True)
+    c2.markdown(_kpi_card("Deals Brasil", str(n_br)), unsafe_allow_html=True)
+    c3.markdown(_kpi_card("Deals Global", str(n_gl)), unsafe_allow_html=True)
+
+    c4, c5, c6 = st.columns(3, gap="medium")
+    c4.markdown(_kpi_card("Volume total", volume_str, f"{pct_com_valor:.0f}% com valor divulgado"), unsafe_allow_html=True)
+    c5.markdown(_kpi_card("Ticket médio", ticket_str), unsafe_allow_html=True)
+    c6.markdown(_kpi_card("Maior deal", maior_str, maior_sub), unsafe_allow_html=True)
 
 
 def _volume_por_mes(f: pd.DataFrame) -> None:
