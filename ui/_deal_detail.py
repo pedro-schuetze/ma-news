@@ -54,6 +54,14 @@ DEAL_CSS = """
     background: rgba(16, 185, 129, 0.1);
     margin-right: 10px;
 }
+.deal-hero .value-pill.undisclosed {
+    color: inherit;
+    opacity: 0.7;
+    border-color: rgba(128, 128, 128, 0.35);
+    background: rgba(128, 128, 128, 0.1);
+    font-size: 0.95rem;
+    font-weight: 500;
+}
 .deal-hero .tipo-pill {
     display: inline-block;
     padding: 3px 10px;
@@ -121,11 +129,16 @@ def _render_hero(deal: dict) -> None:
     data_str = format_date_pt(deal.get("data_anuncio")) or "Sem data"
     comprador = deal.get("comprador") or "?"
     alvo = deal.get("alvo") or "?"
-    valor = format_value(deal.get("valor_usd"), deal.get("valor_brl"))
+    valor = format_value(deal.get("valor_usd"), deal.get("valor_brl"), deal.get("valor_status"))
     tipo = (deal.get("tipo_transacao") or "").upper()
     resumo = deal.get("resumo_uma_frase") or ""
 
-    value_html = f'<span class="value-pill">{valor}</span>' if valor != "n/d" else ""
+    if valor == "n/d":
+        value_html = ""
+    elif valor == "não divulgado":
+        value_html = f'<span class="value-pill undisclosed">{valor}</span>'
+    else:
+        value_html = f'<span class="value-pill">{valor}</span>'
     tipo_html = f'<span class="tipo-pill">{tipo}</span>' if tipo else ""
 
     st.markdown(

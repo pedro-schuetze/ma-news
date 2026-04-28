@@ -55,6 +55,7 @@ def _build_deal_row(extracted: dict, deal_date: date | None) -> dict:
         "subsetor": extracted.get("subsetor"),
         "valor_usd": extracted.get("valor_usd"),
         "valor_brl": extracted.get("valor_brl"),
+        "valor_status": extracted.get("valor_status"),
         "tipo_transacao": extracted.get("tipo_transacao"),
         "status": extracted.get("status"),
         "resumo_uma_frase": extracted.get("resumo_uma_frase"),

@@ -18,6 +18,11 @@
             {%- if brasil_count > 0 %} · {{ brasil_count }} Brasil{% endif -%}
             {%- if global_count > 0 %} · {{ global_count }} Global{% endif -%}
           </div>
+          {% if app_url %}
+          <div style="margin-top:14px;">
+            <a href="{{ app_url }}" style="display:inline-block;padding:8px 16px;background:#1f2328;color:#ffffff;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;">🔍 Ver no app</a>
+          </div>
+          {% endif %}
         </td></tr>
 
         {% for group in groups %}
@@ -35,23 +40,24 @@
         </td></tr>
 
         {% for deal in group.deals %}
-        <tr><td style="padding:16px 32px;border-bottom:1px solid #f0f2f5;">
+        <tr><td style="padding:16px 32px 16px {% if deal.is_mega %}28px{% else %}32px{% endif %};border-bottom:1px solid #f0f2f5;{% if deal.is_mega %}border-left:4px solid #d4a017;background:#fffbea;{% endif %}">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:4px;">
             <tr>
               <td style="font-size:12px;color:#6a737d;vertical-align:middle;">
                 <span style="font-weight:500;">{{ deal.country_str }}</span> · {{ deal.setor or '—' }}{% if deal.subsetor %} · {{ deal.subsetor }}{% endif %}
               </td>
-              {% if deal.tipo_transacao %}
               <td align="right" style="vertical-align:middle;">
-                <span style="padding:2px 8px;background:#eef2f8;border-radius:4px;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#4a5d7a;font-weight:600;">{{ deal.tipo_transacao }}</span>
+                {% if deal.is_mega %}<span style="padding:2px 8px;background:#fde68a;border-radius:4px;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#854d0e;font-weight:700;margin-right:6px;">⭐ Mega deal</span>{% endif %}
+                {% if deal.tipo_transacao %}<span style="padding:2px 8px;background:#eef2f8;border-radius:4px;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#4a5d7a;font-weight:600;">{{ deal.tipo_transacao }}</span>{% endif %}
               </td>
-              {% endif %}
             </tr>
           </table>
           <div style="font-size:16px;font-weight:600;color:#1f2328;margin:2px 0;">
             {{ deal.comprador or '?' }} <span style="color:#8a93a0;font-weight:400;">→</span> {{ deal.alvo or '?' }}
             {% if deal.valor_str != 'n/d' %}
             <span style="float:right;font-size:14px;color:#047857;background:#d1fae5;padding:2px 10px;border-radius:6px;font-weight:600;">{{ deal.valor_str }}</span>
+            {% elif deal.valor_status == 'nao_divulgado' %}
+            <span style="float:right;font-size:12px;color:#6a737d;background:#eef0f3;padding:2px 10px;border-radius:6px;font-weight:500;">valor não divulgado</span>
             {% endif %}
           </div>
           <div style="clear:both;"></div>
@@ -84,13 +90,14 @@
         </td></tr>
 
         {% for deal in recap %}
-        <tr><td style="padding:14px 32px;border-bottom:1px solid #f0f2f5;background:#fafbfc;">
+        <tr><td style="padding:14px 32px 14px {% if deal.is_mega %}28px{% else %}32px{% endif %};border-bottom:1px solid #f0f2f5;background:{% if deal.is_mega %}#fffbea{% else %}#fafbfc{% endif %};{% if deal.is_mega %}border-left:4px solid #d4a017;{% endif %}">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:2px;">
             <tr>
               <td style="font-size:12px;color:#6a737d;vertical-align:middle;">
                 {% if deal.data_anuncio_short %}<span style="font-weight:500;">{{ deal.data_anuncio_short }}</span> · {% endif %}<span>{{ deal.country_str }}</span>{% if deal.setor %} · {{ deal.setor }}{% endif %}
               </td>
               <td align="right" style="font-size:11px;color:#6a737d;vertical-align:middle;">
+                {% if deal.is_mega %}<span style="padding:2px 8px;background:#fde68a;border-radius:4px;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#854d0e;font-weight:700;margin-right:6px;">⭐ Mega</span>{% endif %}
                 {% if deal.mention_count and deal.mention_count > 0 %}📰 {{ deal.mention_count }} menç{{ 'ões' if deal.mention_count != 1 else 'ão' }}{% endif %}
               </td>
             </tr>
@@ -99,6 +106,8 @@
             {{ deal.comprador or '?' }} <span style="color:#8a93a0;font-weight:400;">→</span> {{ deal.alvo or '?' }}
             {% if deal.valor_str != 'n/d' %}
             <span style="float:right;font-size:13px;color:#047857;background:#d1fae5;padding:2px 10px;border-radius:6px;font-weight:600;">{{ deal.valor_str }}</span>
+            {% elif deal.valor_status == 'nao_divulgado' %}
+            <span style="float:right;font-size:11px;color:#6a737d;background:#eef0f3;padding:2px 10px;border-radius:6px;font-weight:500;">valor não divulgado</span>
             {% endif %}
           </div>
           <div style="clear:both;"></div>
@@ -109,6 +118,16 @@
           {% endif %}
         </td></tr>
         {% endfor %}
+        {% endif %}
+
+        {% if app_url %}
+        <!-- CTA inferior -->
+        <tr><td style="padding:24px 32px;background:#ffffff;border-top:1px solid #eaecef;text-align:center;">
+          <a href="{{ app_url }}" style="display:inline-block;padding:10px 22px;background:#1f2328;color:#ffffff;text-decoration:none;border-radius:6px;font-size:13px;font-weight:600;">🔍 Explorar no app</a>
+          <div style="margin-top:8px;font-size:11px;color:#8a93a0;">
+            Filtros, gráficos e drill-down de cada deal
+          </div>
+        </td></tr>
         {% endif %}
 
         <!-- Footer -->

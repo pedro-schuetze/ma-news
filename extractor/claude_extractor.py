@@ -11,7 +11,11 @@ Regras:
 - Se a notícia NÃO for sobre uma transação de M&A real (aquisição, fusão, compra de participação, joint venture, IPO com componente de M&A, venda de ativo, follow-on relevante), retorne `{"is_ma": false}` e nada mais.
 - Se for M&A, retorne `is_ma: true` e preencha o máximo de campos possível. Use `null` para o que não conseguir inferir.
 - `regiao`: "BR" se a transação for primariamente brasileira (partes brasileiras ou ativos no Brasil), senão "Global".
-- `valor_usd`: valor total da transação em USD (número, sem formatação). Converta BRL→USD usando taxa aproximada 5,0 se necessário. Se "undisclosed"/"não divulgado", use null.
+- `valor_usd`: valor total da transação em USD (número, sem formatação). Converta BRL→USD usando taxa aproximada 5,0 se necessário. Se não souber o valor, use null.
+- `valor_status`: classifique o status do valor da transação:
+    - "divulgado" se a matéria informa o valor (mesmo aproximado).
+    - "nao_divulgado" se a matéria diz explicitamente que o valor NÃO foi divulgado / "undisclosed" / "termos não revelados" / "valor não revelado".
+    - "desconhecido" se a matéria simplesmente não menciona valor (nem informa nem diz que é não divulgado).
 - `alvo` e `comprador`: APENAS o nome curto e canônico da empresa, sem descrições entre parênteses, sem adjetivos de país (ex: "Ecopetrol" e não "Colombia's Ecopetrol"), sem sufixos societários opcionais. Use o nome pelo qual a empresa é conhecida comercialmente.
 - `tipo_transacao`: um de "aquisição", "fusão", "joint venture", "venda de ativo", "IPO", "follow-on", "investimento minoritário", "outro". Regras: se a operação resulta (ou oferta busca resultar) em controle (>50%) do alvo, use "aquisição" mesmo que a tranche inicial seja minoritária (ex.: compra de 26% + OPA para 51% é "aquisição"). Use "investimento minoritário" somente quando NÃO há caminho para controle.
 - `status`: "anunciada" ou "concluída".
@@ -30,6 +34,7 @@ RESPONSE_SCHEMA_HINT = """{
   "subsetor": string | null,
   "valor_usd": number | null,
   "valor_brl": number | null,
+  "valor_status": "divulgado" | "nao_divulgado" | "desconhecido",
   "tipo_transacao": string | null,
   "status": string | null,
   "resumo_uma_frase": string

@@ -50,6 +50,20 @@ def _format_value(v_usd, v_brl) -> str:
     return "n/d"
 
 
+def _is_mega(deal: dict) -> bool:
+    """Mega deal = acima de US$5bi (ou R$10bi se só tiver BRL).
+    Configurável via MEGA_DEAL_USD / MEGA_DEAL_BRL."""
+    threshold_usd = float(os.environ.get("MEGA_DEAL_USD", "5000000000"))
+    threshold_brl = float(os.environ.get("MEGA_DEAL_BRL", "10000000000"))
+    if deal.get("valor_usd") is not None and float(deal["valor_usd"]) >= threshold_usd:
+        return True
+    if (deal.get("valor_usd") is None
+            and deal.get("valor_brl") is not None
+            and float(deal["valor_brl"]) >= threshold_brl):
+        return True
+    return False
+
+
 def _format_date_str(d: date) -> str:
     return f"{d.day} de {_MESES[d.month - 1]} de {d.year}"
 
@@ -195,6 +209,8 @@ def _enrich(deals: list[dict]) -> list[dict]:
                 **d,
                 "country_str": _country_display(d.get("pais"), d.get("regiao")),
                 "valor_str": _format_value(d.get("valor_usd"), d.get("valor_brl")),
+                "valor_status": d.get("valor_status"),
+                "is_mega": _is_mega(d),
                 "data_anuncio_short": _format_short_date(d.get("data_anuncio")),
             }
         )
@@ -228,6 +244,7 @@ def build_context(deals: list[dict], recap: list[dict] | None = None) -> dict:
         "groups": groups,
         "recap": recap_enriched,
         "sources_summary": f"{len(fontes_unicas)} fontes monitoradas",
+        "app_url": (os.environ.get("APP_URL") or "").rstrip("/") or None,
     }
 
 

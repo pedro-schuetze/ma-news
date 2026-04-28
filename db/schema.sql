@@ -19,6 +19,7 @@ create table deals (
     subsetor text,
     valor_usd numeric,
     valor_brl numeric,
+    valor_status text check (valor_status in ('divulgado', 'nao_divulgado', 'desconhecido')),
     tipo_transacao text,
     status text,
     resumo_uma_frase text,

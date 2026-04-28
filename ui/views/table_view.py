@@ -94,7 +94,7 @@ def render() -> None:
         c1, c2, c3 = st.columns(3)
         c1.markdown(f"**Setor:** {deal_row.get('setor', 'n/d')}")
         c1.markdown(f"**Subsetor:** {deal_row.get('subsetor', 'n/d')}")
-        c2.markdown(f"**Valor:** {format_value(deal_row.get('valor_usd'), deal_row.get('valor_brl'))}")
+        c2.markdown(f"**Valor:** {format_value(deal_row.get('valor_usd'), deal_row.get('valor_brl'), deal_row.get('valor_status'))}")
         c2.markdown(f"**Tipo:** {deal_row.get('tipo_transacao', 'n/d')}")
         c3.markdown(f"**Região:** {deal_row.get('regiao', 'n/d')}")
         c3.markdown(f"**País:** {deal_row.get('pais', 'n/d')}")

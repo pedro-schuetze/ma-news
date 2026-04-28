@@ -59,6 +59,33 @@ CARD_CSS = """
     border-color: rgba(128, 128, 128, 0.3);
     background: rgba(128, 128, 128, 0.08);
 }
+.deal-card-value.undisclosed {
+    color: inherit;
+    opacity: 0.7;
+    border-color: rgba(128, 128, 128, 0.35);
+    background: rgba(128, 128, 128, 0.1);
+    font-weight: 500;
+    font-size: 0.88rem;
+}
+.deal-card-mega {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(212, 160, 23, 0.18);
+    color: #d4a017;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 8px;
+}
+.deal-card-inner.is-mega {
+    border-left: 4px solid #d4a017;
+    background: rgba(212, 160, 23, 0.06);
+    padding: 12px 16px;
+    margin: -4px -6px 0 -6px;
+    border-radius: 6px;
+}
 .deal-card-summary {
     font-size: 0.96rem;
     line-height: 1.5;
@@ -111,8 +138,13 @@ def _render_card(deal: pd.Series, mentions: pd.DataFrame) -> None:
     data_str = format_date_pt(deal.get("data_anuncio"))
     comprador = deal.get("comprador") or "?"
     alvo = deal.get("alvo") or "?"
-    valor = format_value(deal.get("valor_usd"), deal.get("valor_brl"))
-    valor_class = "unknown" if valor == "n/d" else ""
+    valor = format_value(deal.get("valor_usd"), deal.get("valor_brl"), deal.get("valor_status"))
+    if valor == "n/d":
+        valor_class = "unknown"
+    elif valor == "não divulgado":
+        valor_class = "undisclosed"
+    else:
+        valor_class = ""
     resumo = deal.get("resumo_uma_frase") or ""
     tipo = (deal.get("tipo_transacao") or "").upper()
 
@@ -130,9 +162,25 @@ def _render_card(deal: pd.Series, mentions: pd.DataFrame) -> None:
         sep = '<span class="sep">·</span>'
         sources_html = sep.join(source_links)
 
+    # Mega deal: US$5bi+ (ou R$10bi+ se só tiver BRL)
+    mega_threshold_usd = float(os.environ.get("MEGA_DEAL_USD", "5000000000"))
+    mega_threshold_brl = float(os.environ.get("MEGA_DEAL_BRL", "10000000000"))
+    valor_usd_raw = deal.get("valor_usd")
+    valor_brl_raw = deal.get("valor_brl")
+    is_mega = (
+        (pd.notna(valor_usd_raw) and float(valor_usd_raw) >= mega_threshold_usd)
+        or (
+            not pd.notna(valor_usd_raw)
+            and pd.notna(valor_brl_raw)
+            and float(valor_brl_raw) >= mega_threshold_brl
+        )
+    )
+    mega_badge = '<span class="deal-card-mega">⭐ Mega deal</span>' if is_mega else ""
+    inner_class = "deal-card-inner is-mega" if is_mega else "deal-card-inner"
+
     deal_id = int(deal["id"])
     inner_html = f"""
-    <div class="deal-card-inner">
+    <div class="{inner_class}">
         <div class="deal-card-head">
             <div><span class="flag">{flag}</span><span class="setor">{setor_line}</span></div>
             <div class="date">{data_str}</div>
@@ -143,7 +191,7 @@ def _render_card(deal: pd.Series, mentions: pd.DataFrame) -> None:
         <div class="deal-card-value {valor_class}">{valor}</div>
         <div class="deal-card-summary">{resumo}</div>
         <div class="deal-card-foot">
-            <span class="tipo">{tipo}</span>
+            <span>{mega_badge}<span class="tipo">{tipo}</span></span>
             <span class="sources">📰 {sources_html}</span>
         </div>
     </div>

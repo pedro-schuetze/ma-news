@@ -48,7 +48,9 @@ def flag_for(pais: str | None, regiao: str | None = None) -> str:
     return "🌐"
 
 
-def format_value(valor_usd, valor_brl) -> str:
+def format_value(valor_usd, valor_brl, valor_status: str | None = None) -> str:
+    """Formata valor da transação. Se valor está null mas valor_status indica
+    'nao_divulgado', retorna 'não divulgado' (distinto de 'n/d')."""
     if pd.notna(valor_usd):
         v = float(valor_usd)
         if v >= 1e9:
@@ -63,6 +65,8 @@ def format_value(valor_usd, valor_brl) -> str:
         if v >= 1e6:
             return f"R$ {v / 1e6:.0f}M"
         return f"R$ {v / 1e3:.0f}k"
+    if valor_status == "nao_divulgado":
+        return "não divulgado"
     return "n/d"
 
 
