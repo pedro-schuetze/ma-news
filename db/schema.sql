@@ -22,6 +22,7 @@ create table deals (
     tipo_transacao text,
     status text,
     resumo_uma_frase text,
+    last_emailed_at timestamptz,      -- último envio em newsletter (NULL = nunca)
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
 );
@@ -37,6 +38,7 @@ create index if not exists deals_data_anuncio_idx on deals (data_anuncio desc);
 create index if not exists deals_regiao_idx on deals (regiao);
 create index if not exists deals_setor_idx on deals (setor);
 create index if not exists deals_valor_usd_idx on deals (valor_usd desc);
+create index if not exists deals_last_emailed_at_idx on deals (last_emailed_at);
 create index if not exists deals_alvo_company_idx on deals (alvo_company_id);
 create index if not exists deals_comprador_company_idx on deals (comprador_company_id);
 

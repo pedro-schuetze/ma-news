@@ -9,7 +9,6 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
 
-import pandas as pd
 from dotenv import load_dotenv
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -23,60 +22,14 @@ from db.client import get_client  # noqa: E402
 _MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho",
           "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
 
-_COUNTRY_ISO2 = {
-    "brasil": "br", "brazil": "br",
-    "estados unidos": "us", "eua": "us", "usa": "us", "us": "us", "united states": "us",
-    "colombia": "co", "colômbia": "co",
-    "alemanha": "de", "germany": "de",
-    "canada": "ca", "canadá": "ca",
-    "italia": "it", "itália": "it", "italy": "it",
-    "franca": "fr", "frança": "fr", "france": "fr",
-    "reino unido": "gb", "uk": "gb", "united kingdom": "gb", "inglaterra": "gb",
-    "espanha": "es", "spain": "es",
-    "portugal": "pt",
-    "japao": "jp", "japão": "jp", "japan": "jp",
-    "china": "cn",
-    "india": "in", "índia": "in",
-    "mexico": "mx", "méxico": "mx",
-    "argentina": "ar", "chile": "cl", "peru": "pe",
-    "coreia do sul": "kr", "coréia do sul": "kr", "south korea": "kr",
-    "australia": "au", "austrália": "au",
-    "suica": "ch", "suíça": "ch", "switzerland": "ch",
-    "holanda": "nl", "netherlands": "nl",
-    "belgica": "be", "bélgica": "be", "belgium": "be",
-    "irlanda": "ie", "ireland": "ie",
-    "singapura": "sg", "singapore": "sg",
-}
 
-
-def _iso2_for(pais: str | None, regiao: str | None) -> str | None:
-    if pais:
-        key = pais.strip().lower()
-        if key in _COUNTRY_ISO2:
-            return _COUNTRY_ISO2[key]
+def _country_display(pais: str | None, regiao: str | None) -> str:
+    """Exibe nome do país; se desconhecido, cai para 'Brasil' (BR) ou 'Internacional'."""
+    if pais and pais.strip():
+        return pais.strip()
     if regiao == "BR":
-        return "br"
-    return None
-
-
-def _flag_img_html(pais: str | None, regiao: str | None, width: int = 20) -> str:
-    """Retorna <img> com flagcdn PNG, ou fallback com globinho estilizado."""
-    iso = _iso2_for(pais, regiao)
-    if iso:
-        # flagcdn serve tamanhos discretos: 16, 20, 24, 28, 32, 40, 48, 56, 64, 80, 96, ...
-        # Use w{N} (largura fixa, altura proporcional)
-        return (
-            f'<img src="https://flagcdn.com/w{width * 2}/{iso}.png" '
-            f'width="{width}" alt="" '
-            f'style="display:inline-block;vertical-align:middle;border-radius:2px;'
-            f'border:1px solid rgba(0,0,0,0.1);">'
-        )
-    # Fallback: círculo cinza com símbolo de globo (sempre renderiza)
-    return (
-        f'<span style="display:inline-block;width:{width}px;height:{int(width * 0.75)}px;'
-        f'background:#dfe3e8;border-radius:2px;text-align:center;line-height:{int(width * 0.75)}px;'
-        f'font-size:{int(width * 0.6)}px;color:#6a737d;vertical-align:middle;">●</span>'
-    )
+        return "Brasil"
+    return "Internacional"
 
 
 def _format_value(v_usd, v_brl) -> str:
@@ -101,27 +54,66 @@ def _format_date_str(d: date) -> str:
     return f"{d.day} de {_MESES[d.month - 1]} de {d.year}"
 
 
-def fetch_recent_deals(lookback_hours: int = 30) -> list[dict]:
-    """Busca deals criados nas últimas N horas (usamos created_at, não data_anuncio,
-    para capturar deals processados hoje mesmo que o anúncio oficial seja mais antigo).
-    Default 30h para dar folga em relação ao cron diário.
+def _format_short_date(d) -> str:
+    """28 abr para uso na seção 'caso você tenha perdido'."""
+    if d is None:
+        return ""
+    if isinstance(d, str):
+        try:
+            d = datetime.fromisoformat(d).date()
+        except ValueError:
+            return ""
+    if isinstance(d, datetime):
+        d = d.date()
+    meses_curtos = ["jan", "fev", "mar", "abr", "mai", "jun",
+                    "jul", "ago", "set", "out", "nov", "dez"]
+    return f"{d.day} {meses_curtos[d.month - 1]}"
 
-    Aplica threshold de exibição para deals Global (default US$500M via
-    DISPLAY_MIN_USD_GLOBAL). BR nunca é filtrado por valor.
+
+def _attach_mentions(client, deals: list[dict]) -> list[dict]:
+    """Anexa lista de menções (titulo, url, fonte) a cada deal."""
+    if not deals:
+        return deals
+    deal_ids = [d["id"] for d in deals]
+    mentions = (
+        client.table("deal_mentions")
+        .select("deal_id,titulo,url,fonte")
+        .in_("deal_id", deal_ids)
+        .execute()
+        .data
+    )
+    by_deal: dict[int, list[dict]] = {}
+    for m in mentions:
+        by_deal.setdefault(m["deal_id"], []).append(m)
+    for d in deals:
+        d["mentions"] = by_deal.get(d["id"], [])
+        d["mention_count"] = len(d["mentions"])
+    return deals
+
+
+def fetch_recent_deals(lookback_hours: int = 30) -> list[dict]:
+    """Busca deals criados nas últimas N horas, EXCLUINDO os que já foram
+    enviados em newsletter recente (default últimos 7 dias, configurável via
+    NEWSLETTER_DEDUP_DAYS).
+
+    Aplica também threshold de exibição para Global (DISPLAY_MIN_USD_GLOBAL).
+    BR nunca é filtrado por valor.
     """
     client = get_client()
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=lookback_hours)).isoformat()
     display_min_global = float(os.environ.get("DISPLAY_MIN_USD_GLOBAL", "500000000"))
+    dedup_days = int(os.environ.get("NEWSLETTER_DEDUP_DAYS", "7"))
+    dedup_cutoff = (datetime.now(timezone.utc) - timedelta(days=dedup_days)).isoformat()
 
-    deals = (
+    query = (
         client.table("deals")
         .select("*")
         .gte("created_at", cutoff)
+        .or_(f"last_emailed_at.is.null,last_emailed_at.lt.{dedup_cutoff}")
         .order("regiao")
         .order("valor_usd", desc=True, nullsfirst=False)
-        .execute()
-        .data
     )
+    deals = query.execute().data
     if not deals:
         return []
 
@@ -133,34 +125,84 @@ def fetch_recent_deals(lookback_hours: int = 30) -> list[dict]:
     if not deals:
         return []
 
-    deal_ids = [d["id"] for d in deals]
-    mentions = (
-        client.table("deal_mentions")
-        .select("deal_id,titulo,url,fonte")
-        .in_("deal_id", deal_ids)
+    return _attach_mentions(client, deals)
+
+
+def fetch_recap_deals(days: int = 7, top_n: int = 5,
+                      exclude_ids: list[int] | None = None) -> list[dict]:
+    """Top N deals dos últimos `days` dias por valor_usd (desempate: número
+    de menções), excluindo os IDs informados.
+
+    Aplica DISPLAY_MIN_USD_GLOBAL para Global. BR não filtrado por valor.
+    Pensado para a seção 'Caso você tenha perdido'.
+    """
+    client = get_client()
+    cutoff = (date.today() - timedelta(days=days)).isoformat()
+    display_min_global = float(os.environ.get("DISPLAY_MIN_USD_GLOBAL", "500000000"))
+
+    deals = (
+        client.table("deals")
+        .select("*")
+        .gte("data_anuncio", cutoff)
+        .order("valor_usd", desc=True, nullsfirst=False)
         .execute()
         .data
     )
+    if not deals:
+        return []
 
-    by_deal: dict[int, list[dict]] = {}
-    for m in mentions:
-        by_deal.setdefault(m["deal_id"], []).append(m)
+    exclude = set(exclude_ids or [])
+    filtered: list[dict] = []
     for d in deals:
-        d["mentions"] = by_deal.get(d["id"], [])
+        if d["id"] in exclude:
+            continue
+        if d.get("regiao") == "BR":
+            filtered.append(d)
+        elif d.get("valor_usd") is not None and float(d["valor_usd"]) >= display_min_global:
+            filtered.append(d)
 
-    return deals
+    if not filtered:
+        return []
+
+    # Anexa menções para usar como desempate.
+    _attach_mentions(client, filtered)
+
+    # Ordena por (valor_usd desc, mention_count desc).
+    filtered.sort(
+        key=lambda d: (
+            float(d.get("valor_usd") or 0),
+            int(d.get("mention_count") or 0),
+        ),
+        reverse=True,
+    )
+    return filtered[:top_n]
 
 
-def build_context(deals: list[dict]) -> dict:
+def mark_deals_emailed(deal_ids: list[int]) -> None:
+    """Marca os deals como enviados (last_emailed_at = agora)."""
+    if not deal_ids:
+        return
+    client = get_client()
+    now = datetime.now(timezone.utc).isoformat()
+    client.table("deals").update({"last_emailed_at": now}).in_("id", deal_ids).execute()
+
+
+def _enrich(deals: list[dict]) -> list[dict]:
     enriched = []
     for d in deals:
         enriched.append(
             {
                 **d,
-                "flag_img": _flag_img_html(d.get("pais"), d.get("regiao"), width=20),
+                "country_str": _country_display(d.get("pais"), d.get("regiao")),
                 "valor_str": _format_value(d.get("valor_usd"), d.get("valor_brl")),
+                "data_anuncio_short": _format_short_date(d.get("data_anuncio")),
             }
         )
+    return enriched
+
+
+def build_context(deals: list[dict], recap: list[dict] | None = None) -> dict:
+    enriched = _enrich(deals)
 
     brasil = [d for d in enriched if d.get("regiao") == "BR"]
     globais = [d for d in enriched if d.get("regiao") == "Global"]
@@ -170,25 +212,13 @@ def build_context(deals: list[dict]) -> dict:
 
     groups = []
     if brasil:
-        groups.append(
-            {
-                "key": "brasil",
-                "label": "Brasil",
-                "flag_img_large": _flag_img_html("Brasil", "BR", width=36),
-                "deals": _sort_by_value(brasil),
-            }
-        )
+        groups.append({"key": "brasil", "label": "Brasil", "deals": _sort_by_value(brasil)})
     if globais:
-        groups.append(
-            {
-                "key": "global",
-                "label": "Global",
-                "flag_img_large": None,
-                "deals": _sort_by_value(globais),
-            }
-        )
+        groups.append({"key": "global", "label": "Global", "deals": _sort_by_value(globais)})
 
     fontes_unicas = {m["fonte"] for d in enriched for m in d.get("mentions", [])}
+
+    recap_enriched = _enrich(recap or [])
 
     return {
         "data_str": _format_date_str(date.today()),
@@ -196,6 +226,7 @@ def build_context(deals: list[dict]) -> dict:
         "brasil_count": len(brasil),
         "global_count": len(globais),
         "groups": groups,
+        "recap": recap_enriched,
         "sources_summary": f"{len(fontes_unicas)} fontes monitoradas",
     }
 
@@ -229,18 +260,28 @@ def main() -> None:
     parser.add_argument("--send", action="store_true", help="Envia email via Gmail SMTP")
     parser.add_argument("--lookback-hours", type=int, default=30)
     parser.add_argument("--to", type=str, default=None, help="Override do destinatário")
+    parser.add_argument("--recap-days", type=int, default=7,
+                        help="Janela do 'caso você tenha perdido' (default 7 dias)")
+    parser.add_argument("--recap-top", type=int, default=5,
+                        help="Quantos deals na seção de recap (default 5)")
     args = parser.parse_args()
 
     load_dotenv(override=True)
 
     deals = fetch_recent_deals(args.lookback_hours)
-    print(f"[info] {len(deals)} deals encontrados nas últimas {args.lookback_hours}h")
+    print(f"[info] {len(deals)} deals novos (já filtrando os enviados nos últimos "
+          f"{os.environ.get('NEWSLETTER_DEDUP_DAYS', '7')} dias)")
 
-    if not deals:
-        print("[skip] nenhum deal novo — newsletter não gerada")
+    today_ids = [d["id"] for d in deals]
+    recap = fetch_recap_deals(days=args.recap_days, top_n=args.recap_top,
+                              exclude_ids=today_ids)
+    print(f"[info] {len(recap)} deals no recap dos últimos {args.recap_days} dias")
+
+    if not deals and not recap:
+        print("[skip] nada novo nem para recap — newsletter não gerada")
         return
 
-    context = build_context(deals)
+    context = build_context(deals, recap=recap)
     html = render_html(context)
 
     subject = f"M&A News — {context['data_str']} ({context['total']} deals)"
@@ -254,6 +295,12 @@ def main() -> None:
         print(f"[info] enviando para {to_email}...")
         send_email(html, subject, to_email)
         print(f"[ok] enviada: {subject}")
+        # Marca como enviado SÓ depois do send_email retornar com sucesso,
+        # para não 'queimar' deals se o SMTP falhar. Recap não é marcado
+        # (a ideia é justamente lembrar de coisas já enviadas antes).
+        if today_ids:
+            mark_deals_emailed(today_ids)
+            print(f"[ok] {len(today_ids)} deals marcados como enviados")
     else:
         print(f"[dry] use --send para enviar. Assunto seria: {subject}")
 

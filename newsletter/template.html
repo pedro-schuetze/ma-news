@@ -14,9 +14,9 @@
           <div style="font-size:12px;color:#6a737d;letter-spacing:1px;text-transform:uppercase;font-weight:600;">M&amp;A News</div>
           <h1 style="margin:4px 0 0 0;font-size:22px;color:#1f2328;">Transações de {{ data_str }}</h1>
           <div style="margin-top:6px;font-size:13px;color:#6a737d;">
-            {{ total }} deal{{ 's' if total != 1 else '' }}
-            {%- if brasil_count > 0 %} · 🇧🇷 {{ brasil_count }} Brasil{% endif -%}
-            {%- if global_count > 0 %} · 🌐 {{ global_count }} Global{% endif -%}
+            {{ total }} deal{{ 's' if total != 1 else '' }} novo{{ 's' if total != 1 else '' }}
+            {%- if brasil_count > 0 %} · {{ brasil_count }} Brasil{% endif -%}
+            {%- if global_count > 0 %} · {{ global_count }} Global{% endif -%}
           </div>
         </td></tr>
 
@@ -25,7 +25,7 @@
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-bottom:2px solid #eaecef;padding-bottom:10px;">
             <tr>
               <td style="padding-bottom:10px;vertical-align:middle;">
-                {% if group.flag_img_large %}<span style="vertical-align:middle;margin-right:14px;">{{ group.flag_img_large|safe }}</span>{% endif %}<span style="font-size:26px;font-weight:700;color:#1f2328;vertical-align:middle;letter-spacing:-0.3px;">{{ group.label }}</span>
+                <span style="font-size:26px;font-weight:700;color:#1f2328;letter-spacing:-0.3px;">{{ group.label }}</span>
               </td>
               <td align="right" style="padding-bottom:10px;vertical-align:middle;font-size:15px;color:#6a737d;font-weight:500;">
                 {{ group.deals|length }} deal{{ 's' if group.deals|length != 1 else '' }}
@@ -39,7 +39,7 @@
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:4px;">
             <tr>
               <td style="font-size:12px;color:#6a737d;vertical-align:middle;">
-                <span style="vertical-align:middle;padding-right:12px;">{{ deal.flag_img|safe }}</span><span style="vertical-align:middle;">{{ deal.setor or '—' }}{% if deal.subsetor %} · {{ deal.subsetor }}{% endif %}</span>
+                <span style="font-weight:500;">{{ deal.country_str }}</span> · {{ deal.setor or '—' }}{% if deal.subsetor %} · {{ deal.subsetor }}{% endif %}
               </td>
               {% if deal.tipo_transacao %}
               <td align="right" style="vertical-align:middle;">
@@ -69,6 +69,47 @@
         </td></tr>
         {% endfor %}
         {% endfor %}
+
+        {% if recap %}
+        <!-- Recap "Caso você tenha perdido" -->
+        <tr><td style="padding:28px 32px 8px 32px;background:#fafbfc;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-bottom:2px solid #eaecef;padding-bottom:10px;">
+            <tr>
+              <td style="padding-bottom:10px;vertical-align:middle;">
+                <div style="font-size:11px;color:#6a737d;letter-spacing:1px;text-transform:uppercase;font-weight:600;margin-bottom:2px;">Caso você tenha perdido</div>
+                <span style="font-size:22px;font-weight:700;color:#1f2328;letter-spacing:-0.3px;">Maiores deals dos últimos 7 dias</span>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+
+        {% for deal in recap %}
+        <tr><td style="padding:14px 32px;border-bottom:1px solid #f0f2f5;background:#fafbfc;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:2px;">
+            <tr>
+              <td style="font-size:12px;color:#6a737d;vertical-align:middle;">
+                {% if deal.data_anuncio_short %}<span style="font-weight:500;">{{ deal.data_anuncio_short }}</span> · {% endif %}<span>{{ deal.country_str }}</span>{% if deal.setor %} · {{ deal.setor }}{% endif %}
+              </td>
+              <td align="right" style="font-size:11px;color:#6a737d;vertical-align:middle;">
+                {% if deal.mention_count and deal.mention_count > 0 %}📰 {{ deal.mention_count }} menç{{ 'ões' if deal.mention_count != 1 else 'ão' }}{% endif %}
+              </td>
+            </tr>
+          </table>
+          <div style="font-size:15px;font-weight:600;color:#1f2328;margin:2px 0;">
+            {{ deal.comprador or '?' }} <span style="color:#8a93a0;font-weight:400;">→</span> {{ deal.alvo or '?' }}
+            {% if deal.valor_str != 'n/d' %}
+            <span style="float:right;font-size:13px;color:#047857;background:#d1fae5;padding:2px 10px;border-radius:6px;font-weight:600;">{{ deal.valor_str }}</span>
+            {% endif %}
+          </div>
+          <div style="clear:both;"></div>
+          {% if deal.resumo_uma_frase %}
+          <div style="font-size:13px;color:#3a4048;line-height:1.5;margin:4px 0 0 0;">
+            {{ deal.resumo_uma_frase }}
+          </div>
+          {% endif %}
+        </td></tr>
+        {% endfor %}
+        {% endif %}
 
         <!-- Footer -->
         <tr><td style="padding:20px 32px;background:#f8f9fb;font-size:11px;color:#6a737d;text-align:center;">

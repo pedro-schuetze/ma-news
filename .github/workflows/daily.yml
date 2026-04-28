@@ -38,4 +38,5 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           NEWSLETTER_TO: ${{ secrets.NEWSLETTER_TO }}
           DISPLAY_MIN_USD_GLOBAL: '500000000'
+          NEWSLETTER_DEDUP_DAYS: '7'
         run: python newsletter/build.py --send
