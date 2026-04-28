@@ -187,12 +187,18 @@ def fetch_mentions_full(deal_id: int) -> list[dict]:
 
 
 def open_deal(deal_id: int) -> None:
-    """Callback para abrir a página de detalhes do deal preservando
-    sessão (não usa <a href>, que quebra auth no Streamlit Cloud)."""
+    """Callback para abrir o drill-down do deal dentro da seção atual.
+    Apenas guarda o id em session_state — o render da seção decide se
+    mostra a lista ou os detalhes. Evita full reload (que quebraria auth)
+    e não chama st.rerun()/st.switch_page() dentro do callback."""
     st.session_state["selected_deal_id"] = int(deal_id)
-    pages = st.session_state.get("pages") or {}
-    if "deal" in pages:
-        st.switch_page(pages["deal"])
+    st.session_state["edit_mode"] = False
+
+
+def close_deal() -> None:
+    """Callback para voltar da view de detalhes para a lista da seção."""
+    st.session_state.pop("selected_deal_id", None)
+    st.session_state["edit_mode"] = False
 
 
 def update_deal(deal_id: int, fields: dict) -> None:

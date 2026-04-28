@@ -1,18 +1,22 @@
+"""Drill-down de um deal — usado dentro do Feed e da Tabela.
+
+Não é uma página separada na navegação; é um modo da seção atual,
+controlado por st.session_state["selected_deal_id"]. Assim a sessão
+(auth, filtros) é totalmente preservada.
+"""
 from __future__ import annotations
 
 from datetime import date, datetime
 
-import pandas as pd
 import streamlit as st
 
 from _lib import (
+    close_deal,
     fetch_deal,
     fetch_mentions_full,
     flag_for,
     format_date_pt,
     format_value,
-    load_deals,
-    render_header,
     update_deal,
 )
 
@@ -107,23 +111,6 @@ DEAL_CSS = """
 }
 </style>
 """
-
-
-def _picker_when_no_id() -> None:
-    st.info("Selecione um deal para ver a página completa.")
-    df = load_deals()
-    if df.empty:
-        return
-    df = df.sort_values("data_anuncio", ascending=False, na_position="last").head(50)
-    options = {
-        f"{(row.get('comprador') or '?')} → {(row.get('alvo') or '?')} "
-        f"({format_date_pt(row.get('data_anuncio')) or 's/ data'})": int(row["id"])
-        for _, row in df.iterrows()
-    }
-    choice = st.selectbox("Deals recentes", list(options.keys()), index=None, placeholder="Escolha um deal...")
-    if choice:
-        st.query_params["id"] = str(options[choice])
-        st.rerun()
 
 
 def _render_hero(deal: dict) -> None:
@@ -312,24 +299,14 @@ def _render_mentions(deal_id: int) -> None:
         )
 
 
-def render() -> None:
+def render_deal_detail(deal_id: int, back_label: str = "← Voltar") -> None:
+    """Renderiza o drill-down completo de um deal dentro da seção atual.
+    `back_label` é exibido no botão que limpa o selected_deal_id.
+    """
     st.markdown(DEAL_CSS, unsafe_allow_html=True)
-    render_header("Página do deal")
 
-    deal_id = st.session_state.pop("selected_deal_id", None)
-    if deal_id is None:
-        deal_id_str = st.query_params.get("id")
-        if not deal_id_str:
-            _picker_when_no_id()
-            return
-        try:
-            deal_id = int(deal_id_str)
-        except (ValueError, TypeError):
-            st.error("ID inválido.")
-            return
-    else:
-        deal_id = int(deal_id)
-        st.query_params["id"] = str(deal_id)
+    top_l, top_r = st.columns([1, 5])
+    top_l.button(back_label, key=f"back_{deal_id}", on_click=close_deal, width="stretch")
 
     deal = fetch_deal(deal_id)
     if not deal:
@@ -338,9 +315,9 @@ def render() -> None:
 
     edit_mode = st.session_state.get("edit_mode", False)
     if not edit_mode:
-        _, right = st.columns([5, 1])
-        with right:
-            if st.button("✏️ Editar", width="stretch"):
+        with top_r:
+            _, right = st.columns([5, 1])
+            if right.button("✏️ Editar", width="stretch", key=f"edit_{deal_id}"):
                 st.session_state["edit_mode"] = True
                 st.rerun()
 

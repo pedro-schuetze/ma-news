@@ -6,6 +6,7 @@ from datetime import date, timedelta
 import pandas as pd
 import streamlit as st
 
+from _deal_detail import render_deal_detail
 from _lib import (
     flag_for,
     format_date_pt,
@@ -20,17 +21,8 @@ from _lib import (
 
 CARD_CSS = """
 <style>
-.deal-card {
-    border: 1px solid rgba(128, 128, 128, 0.25);
-    border-radius: 12px;
-    padding: 18px 22px;
-    margin-bottom: 14px;
-    background: rgba(128, 128, 128, 0.03);
-    transition: border-color 0.15s ease, background 0.15s ease;
-}
-.deal-card:hover {
-    border-color: rgba(128, 128, 128, 0.5);
-    background: rgba(128, 128, 128, 0.06);
+.deal-card-inner {
+    padding: 4px 6px 0 6px;
 }
 .deal-card-head {
     display: flex;
@@ -139,8 +131,8 @@ def _render_card(deal: pd.Series, mentions: pd.DataFrame) -> None:
         sources_html = sep.join(source_links)
 
     deal_id = int(deal["id"])
-    html = f"""
-    <div class="deal-card">
+    inner_html = f"""
+    <div class="deal-card-inner">
         <div class="deal-card-head">
             <div><span class="flag">{flag}</span><span class="setor">{setor_line}</span></div>
             <div class="date">{data_str}</div>
@@ -156,20 +148,28 @@ def _render_card(deal: pd.Series, mentions: pd.DataFrame) -> None:
         </div>
     </div>
     """
-    st.markdown(html, unsafe_allow_html=True)
-    _, right = st.columns([5, 1])
-    right.button(
-        "🔍 Abrir deal",
-        key=f"open_deal_{deal_id}",
-        on_click=open_deal,
-        args=(deal_id,),
-        width="stretch",
-    )
+
+    with st.container(border=True):
+        st.markdown(inner_html, unsafe_allow_html=True)
+        _, right = st.columns([5, 1])
+        right.button(
+            "🔍 Abrir deal",
+            key=f"open_deal_{deal_id}",
+            on_click=open_deal,
+            args=(deal_id,),
+            width="stretch",
+        )
 
 
 def render() -> None:
     st.markdown(CARD_CSS, unsafe_allow_html=True)
     render_header("Feed de transações — mais recentes primeiro")
+
+    # Drill-down: se um deal está selecionado, mostra os detalhes em vez da lista.
+    selected = st.session_state.get("selected_deal_id")
+    if selected is not None:
+        render_deal_detail(int(selected), back_label="← Voltar ao feed")
+        return
 
     df = load_deals()
     if df.empty:

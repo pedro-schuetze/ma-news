@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import streamlit as st
 
+from _deal_detail import render_deal_detail
 from _filters import render_active_banner, render_sidebar_and_apply
 from _lib import format_value, load_deals, load_mentions_for, open_deal, render_header
 
 
 def render() -> None:
     render_header("Tabela completa — filtros avançados")
+
+    # Drill-down: se um deal está selecionado, mostra os detalhes em vez da tabela.
+    selected = st.session_state.get("selected_deal_id")
+    if selected is not None:
+        render_deal_detail(int(selected), back_label="← Voltar à tabela")
+        return
 
     df = load_deals()
     if df.empty:
